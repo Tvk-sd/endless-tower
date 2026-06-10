@@ -37,12 +37,13 @@ const ONBOARDING_KEY = "endless-tower-onboarded"
 export interface AppState {
   tasks: Task[]
   sessions: CompletedSession[]
+  sunk: Task[]
   hasOnboarded: boolean
 }
 
 export function loadState(): AppState {
   if (typeof window === "undefined") {
-    return { tasks: [], sessions: [], hasOnboarded: false }
+    return { tasks: [], sessions: [], sunk: [], hasOnboarded: false }
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -51,13 +52,14 @@ export function loadState(): AppState {
       return {
         tasks: data.tasks || [],
         sessions: data.sessions || [],
+        sunk: data.sunk || [],
         hasOnboarded: localStorage.getItem(ONBOARDING_KEY) === "true",
       }
     }
   } catch {
     // ignore
   }
-  return { tasks: [], sessions: [], hasOnboarded: false }
+  return { tasks: [], sessions: [], sunk: [], hasOnboarded: false }
 }
 
 export function saveState(state: AppState): void {
@@ -65,7 +67,7 @@ export function saveState(state: AppState): void {
   try {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ tasks: state.tasks, sessions: state.sessions })
+      JSON.stringify({ tasks: state.tasks, sessions: state.sessions, sunk: state.sunk })
     )
     if (state.hasOnboarded) {
       localStorage.setItem(ONBOARDING_KEY, "true")
