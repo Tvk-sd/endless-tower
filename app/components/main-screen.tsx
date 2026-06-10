@@ -13,22 +13,14 @@ import { getStoneShapeByHash, getStackOverlap, hashString } from "@/lib/stone-pa
 interface MainScreenProps {
   initialTasks: Task[]
   initialSessions: CompletedSession[]
-  initialSunk: Task[]
   hasOnboarded: boolean
 }
 
 const ENABLE_SWING = false
 
-// Prototype: completed stones sink into the ground after a short grace period.
-// Production target is "next app open or 24h" — accelerated here for testing.
-const SINK_GRACE_MS = 15_000
-const SINK_ANIM_MS = 1_200
-
-export function MainScreen({ initialTasks, initialSessions, initialSunk, hasOnboarded }: MainScreenProps) {
+export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: MainScreenProps) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [sessions, setSessions] = useState<CompletedSession[]>(initialSessions)
-  const [sunk, setSunk] = useState<Task[]>(initialSunk)
-  const [sinkingIds, setSinkingIds] = useState<string[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [completingId, setCompletingId] = useState<string | null>(null)
   const [completionProgress, setCompletionProgress] = useState(0)
@@ -47,40 +39,8 @@ export function MainScreen({ initialTasks, initialSessions, initialSunk, hasOnbo
   const towerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    saveState({ tasks, sessions, sunk, hasOnboarded })
-  }, [tasks, sessions, sunk, hasOnboarded])
-
-  // Schedule sinking for completed stones once their grace period elapses.
-  // Stones completed before a reload sink shortly after mount.
-  useEffect(() => {
-    const timers = tasks
-      .filter((t) => t.completedAt && !sinkingIds.includes(t.id))
-      .map((t) => {
-        const delay = Math.max(800, t.completedAt! + SINK_GRACE_MS - Date.now())
-        return setTimeout(() => {
-          setSinkingIds((prev) => (prev.includes(t.id) ? prev : [...prev, t.id]))
-          setExpandedId((prev) => (prev === t.id ? null : prev))
-        }, delay)
-      })
-    return () => timers.forEach(clearTimeout)
-  }, [tasks, sinkingIds])
-
-  // After the sink animation finishes, move the stones from the tower to the ground.
-  useEffect(() => {
-    if (sinkingIds.length === 0) return
-    const ids = [...sinkingIds]
-    const sinkingTasks = tasks.filter((t) => ids.includes(t.id))
-    const timer = setTimeout(() => {
-      setTasks((prev) => prev.filter((t) => !ids.includes(t.id)))
-      setSunk((prev) => [
-        ...prev,
-        ...sinkingTasks.filter((st) => !prev.some((p) => p.id === st.id)),
-      ])
-      setSinkingIds((prev) => prev.filter((id) => !ids.includes(id)))
-    }, SINK_ANIM_MS)
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sinkingIds])
+    saveState({ tasks, sessions, hasOnboarded })
+  }, [tasks, sessions, hasOnboarded])
 
   // Forward native wheel events to the scroll container
   useEffect(() => {
@@ -146,51 +106,49 @@ export function MainScreen({ initialTasks, initialSessions, initialSunk, hasOnbo
     )
   }, [])
 
-  // Mark a task as completed -- it stays in the stack with green fill
+  // Mark a task as completed -- it stays in the stack with colored fill
   const completeTask = useCallback((id: string) => {
+    const completedAt = Date.now()
+    const task = tasks.find((t) => t.id === id)
     setTasks((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, completedAt: Date.now() } : t
-      )
+      prev.map((t) => (t.id === id ? { ...t, completedAt } : t))
     )
-    // Also add to sessions for archive tracking
-    setTasks((prev) => {
-      const completed = prev.find((t) => t.id === id)
-      if (completed) {
-        setSessions((prevSessions) => {
-          const today = new Date().toDateString()
-          const existing = prevSessions.find(
-            (s) => new Date(s.completedAt).toDateString() === today
-          )
-          if (existing) {
-            return prevSessions.map((s) =>
-              s.id === existing.id
-                ? { ...s, tasks: [...s.tasks, completed] }
-                : s
-            )
+    // Add to today's session for archive tracking.
+    // Kept outside the setTasks updater (updaters must be side-effect free —
+    // StrictMode double-invokes them, which previously duplicated entries).
+    if (task) {
+      const completed = { ...task, completedAt }
+      setSessions((prevSessions) => {
+        const today = new Date().toDateString()
+        const existing = prevSessions.find(
+          (s) => new Date(s.completedAt).toDateString() === today
+        )
+        if (existing) {
+          if (existing.tasks.some((t) => t.id === completed.id)) {
+            return prevSessions
           }
-          return [
-            ...prevSessions,
-            { id: generateId(), tasks: [completed], completedAt: Date.now() },
-          ]
-        })
-      }
-      return prev
-    })
+          return prevSessions.map((s) =>
+            s.id === existing.id
+              ? { ...s, tasks: [...s.tasks, completed] }
+              : s
+          )
+        }
+        return [
+          ...prevSessions,
+          { id: generateId(), tasks: [completed], completedAt },
+        ]
+      })
+    }
     setCompletingId(null)
     setCompletionProgress(0)
     holdActiveRef.current = false
-  }, [])
+  }, [tasks])
 
   const handleSave = useCallback((name: string, startFresh: boolean) => {
-    // Sunk stones belong to this tower's history — include them in the save
-    setSessions((prev) => [...prev, saveTower([...sunk, ...tasks], name)])
-    if (startFresh) {
-      setTasks([])
-      setSunk([])
-    }
+    setSessions((prev) => [...prev, saveTower(tasks, name)])
+    if (startFresh) setTasks([])
     setShowSaveDialog(false)
-  }, [tasks, sunk])
+  }, [tasks])
 
   const clearAllTimers = useCallback(() => {
     if (holdDetectRef.current) {
@@ -300,8 +258,8 @@ export function MainScreen({ initialTasks, initialSessions, initialSunk, hasOnbo
       className="flex flex-col h-full relative"
       style={{ backgroundColor: "#F7F5F0" }}
     >
-      {/* Save button — top-left, visible when tower has stones (incl. sunk) */}
-      {(tasks.length > 0 || sunk.length > 0) && (
+      {/* Save button — top-left, visible when tower has stones */}
+      {tasks.length > 0 && (
         <button
           onClick={() => setShowSaveDialog(true)}
           className="absolute top-6 left-6 text-foreground hover:opacity-60 transition-opacity z-10"
@@ -326,8 +284,8 @@ export function MainScreen({ initialTasks, initialSessions, initialSunk, hasOnbo
 
       <SaveTowerDialog
         open={showSaveDialog}
-        stoneCount={tasks.length + sunk.length}
-        completedCount={tasks.filter((t) => !!t.completedAt).length + sunk.length}
+        stoneCount={tasks.length}
+        completedCount={tasks.filter((t) => !!t.completedAt).length}
         onSave={handleSave}
         onCancel={() => setShowSaveDialog(false)}
       />
@@ -366,7 +324,6 @@ export function MainScreen({ initialTasks, initialSessions, initialSunk, hasOnbo
             >
               {tasks.map((task, i) => {
                 const isCompleted = !!task.completedAt
-                const isSinking = sinkingIds.includes(task.id)
                 const topPos = PAD_TOP + i * STEP
                 return (
                   <div
@@ -377,8 +334,7 @@ export function MainScreen({ initialTasks, initialSessions, initialSunk, hasOnbo
                       top: topPos,
                       left: 0,
                       right: 0,
-                      // Sinking stones slip behind the rest of the tower
-                      zIndex: isSinking ? 0 : tasks.length - i,
+                      zIndex: tasks.length - i,
                       transition: "top 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                       transform:
                         dragOverIndex !== null &&
@@ -416,13 +372,7 @@ export function MainScreen({ initialTasks, initialSessions, initialSunk, hasOnbo
                     }}
                   >
                     <div
-                      className={
-                        task.id === newStoneId
-                          ? "stone-fall"
-                          : isSinking
-                            ? "stone-sink"
-                            : ""
-                      }
+                      className={task.id === newStoneId ? "stone-fall" : ""}
                       style={task.id === newStoneId ? ({ "--fall-dur": `${520 + (hashString(task.id) % 200)}ms` } as React.CSSProperties) : undefined}
                     >
                       <Stone
@@ -470,15 +420,6 @@ export function MainScreen({ initialTasks, initialSessions, initialSunk, hasOnbo
             style={{ fontSize: "10px", letterSpacing: "0.02em" }}
           >
             hold to complete
-          </p>
-        )}
-
-        {sunk.length > 0 && (
-          <p
-            className="mt-2 text-foreground opacity-30 animate-fade-in"
-            style={{ fontSize: "10px", letterSpacing: "0.02em" }}
-          >
-            {sunk.length} {sunk.length === 1 ? "stone rests" : "stones rest"} below
           </p>
         )}
       </div>

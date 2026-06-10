@@ -60,7 +60,6 @@ export default function Page() {
           <MainScreen
             initialTasks={appState.tasks}
             initialSessions={appState.sessions}
-            initialSunk={appState.sunk}
             hasOnboarded={appState.hasOnboarded}
           />
         )}

@@ -2,6 +2,7 @@
 
 import type { CompletedSession } from "@/lib/store"
 import { DecorativeStone } from "./stone"
+import { hashString } from "@/lib/stone-paths"
 
 interface ArchiveScreenProps {
   sessions: CompletedSession[]
@@ -73,11 +74,12 @@ export function ArchiveScreen({ sessions, onBack }: ArchiveScreenProps) {
                           zIndex: i,
                         }}
                       >
+                        {/* Hash-derived shape + color so mini towers mirror the real stones */}
                         <DecorativeStone
                           size={size}
-                          shapeIndex={i}
+                          shapeIndex={hashString(task.id)}
                           filled={!!task.completedAt}
-                          fillColorIndex={i}
+                          fillColorIndex={hashString(task.id)}
                         />
                       </div>
                     )

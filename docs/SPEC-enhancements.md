@@ -115,7 +115,20 @@ copy "Drag to reprioritise" stays — it's now literally true.
 
 ---
 
-## 6. Sinking stones (prototype first — this branch)
+## 6. Sinking stones — REJECTED after prototype (Jun 10 2026)
+
+**Decision.** Prototyped on this branch and rejected by Till. Completed
+stones must stay visible: in the live tower they mark which tasks are done
+vs. still open, and in the Towers archive they produce the colorful mini
+towers that make the day overview rewarding. The sinking code was removed;
+a one-time migration in `loadState` folds any stones sunk during prototype
+testing back into the tower. Follow-up shipped instead: archive mini towers
+now use each stone's hash-derived shape and color (faithful to the real
+tower) rather than position-based ones.
+
+The original prototype spec is kept below for the record.
+
+### Original prototype spec (superseded)
 
 **Problem.** Completed stones occupy the tower forever; the only purge is
 "Save & Start New Tower." Daily use silts up with green stones.
@@ -183,6 +196,5 @@ period; sink sound.
 ## Sequencing note
 
 Items 2–4 are independent and low-risk — any order. Item 1 changes data flow
-and should land before item 6 ships beyond prototype (both touch
-`completeTask`). Item 6 is validated on this branch (`prototype/sinking-stones`)
-before being committed to the roadmap.
+in `completeTask`. Item 6 was prototyped on `prototype/sinking-stones` and
+rejected — completed stones stay visible permanently (see item 6 decision).
