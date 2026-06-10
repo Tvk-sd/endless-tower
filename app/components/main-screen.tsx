@@ -72,12 +72,12 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
     return () => cancelAnimationFrame(rafId)
   }, [tasks.length])
 
-  // Scroll to bottom when a new stone is added
+  // Scroll to the top when a new stone is added — it lands on top of the tower
   useEffect(() => {
     if (tasks.length > prevTaskCountRef.current && stackRef.current) {
       // Small delay to let the DOM update with new height first
       requestAnimationFrame(() => {
-        if (stackRef.current) stackRef.current.scrollTop = stackRef.current.scrollHeight
+        if (stackRef.current) stackRef.current.scrollTop = 0
       })
     }
     prevTaskCountRef.current = tasks.length
@@ -90,7 +90,8 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
       createdAt: Date.now(),
       priority: "medium",
     }
-    setTasks((prev) => [...prev, newTask])
+    // Prepend: the new stone lands on top of the tower
+    setTasks((prev) => [newTask, ...prev])
     setNewStoneId(newTask.id)
     setTimeout(() => setNewStoneId(null), 900)
   }, [])
@@ -335,7 +336,10 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
                       left: 0,
                       right: 0,
                       zIndex: tasks.length - i,
-                      transition: "top 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                      // While a new stone drops in, existing stones' top + the
+                      // container height change in lockstep (net zero on screen)
+                      // — animating top would make the tower visibly jump.
+                      transition: newStoneId ? "none" : "top 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                       transform:
                         dragOverIndex !== null &&
                         dragIndex !== null &&
