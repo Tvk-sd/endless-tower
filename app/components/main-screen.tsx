@@ -412,7 +412,7 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
           const OVERLAP = 72
           const STEP = STONE_H - OVERLAP
           const PAD_TOP = 48
-          const PAD_BOTTOM = 4
+          const PAD_BOTTOM = 0
           const towerH = PAD_TOP + STONE_H + (tasks.length - 1) * STEP + PAD_BOTTOM
 
           return (
@@ -532,7 +532,7 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
       {/* Add stone area */}
       <div
         className="flex flex-col items-center justify-start"
-        style={{ paddingTop: "20px", paddingBottom: "32px", flexShrink: 0 }}
+        style={{ paddingTop: "4px", paddingBottom: "20px", flexShrink: 0 }}
       >
         <AddStoneButton onAdd={addTask} />
 
