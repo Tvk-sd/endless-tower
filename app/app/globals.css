@@ -102,3 +102,16 @@
 .animate-stack-settle {
   animation: stack-settle 0.3s ease-out forwards;
 }
+
+/* Stone drop — new tasks fall from above onto the tower */
+@keyframes stone-drop {
+  0%   { transform: translateY(calc(-1 * var(--fall-from, 50dvh))); }
+  72%  { transform: translateY(8px) scale(1.015); }
+  86%  { transform: translateY(-4px) scale(0.995); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.stone-fall {
+  animation: stone-drop var(--fall-dur, 0.72s) cubic-bezier(0.22, 0.68, 0.35, 1) both;
+  will-change: transform;
+}

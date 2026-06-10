@@ -29,6 +29,7 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [newStoneId, setNewStoneId] = useState<string | null>(null)
+  const [fallingId, setFallingId] = useState<string | null>(null)
   const [fallFromPx, setFallFromPx] = useState(360)
   const [fallPadPx, setFallPadPx] = useState(0)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -95,6 +96,8 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
     setFallFromPx(fall)
     // Headroom above the tower so the stone isn't clipped while falling
     setFallPadPx(Math.max(0, fall - landingInView))
+    // Start the drop animation only after distance is measured
+    setFallingId(newStoneId)
   }, [newStoneId, tasks.length])
 
   const addTask = useCallback((text: string) => {
@@ -110,6 +113,7 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
     const fallMs = 640 + (hashString(newTask.id) % 160)
     setTimeout(() => {
       setNewStoneId(null)
+      setFallingId(null)
       setFallPadPx(0)
     }, fallMs + 120)
   }, [])
@@ -306,6 +310,18 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
       className="flex flex-col h-full relative"
       style={{ backgroundColor: "#F7F5F0" }}
     >
+      <style>{`
+        @keyframes stone-drop {
+          0%   { transform: translateY(calc(-1 * var(--fall-from, 50dvh))); }
+          72%  { transform: translateY(8px) scale(1.015); }
+          86%  { transform: translateY(-4px) scale(0.995); }
+          100% { transform: translateY(0) scale(1); }
+        }
+        .stone-fall {
+          animation: stone-drop var(--fall-dur, 0.72s) cubic-bezier(0.22, 0.68, 0.35, 1) both;
+          will-change: transform;
+        }
+      `}</style>
       {/* Save button — top-left, visible when tower has stones */}
       {tasks.length > 0 && (
         <button
@@ -432,7 +448,7 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
                     }}
                   >
                     <div
-                      className={task.id === newStoneId ? "stone-fall" : ""}
+                      className={task.id === fallingId ? "stone-fall" : ""}
                       style={
                         task.id === newStoneId
                           ? ({
