@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef, useEffect } from "react"
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react"
 import { Stone, EXPANDED_W } from "./stone"
 import { AddStoneButton } from "./add-stone-button"
 import { StoneDetail } from "./stone-detail"
@@ -29,6 +29,8 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [newStoneId, setNewStoneId] = useState<string | null>(null)
+  const [fallFromPx, setFallFromPx] = useState(360)
+  const [fallPadPx, setFallPadPx] = useState(0)
   const [editingId, setEditingId] = useState<string | null>(null)
 
   const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -77,13 +79,23 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
   // Scroll to the top when a new stone is added — it lands on top of the tower
   useEffect(() => {
     if (tasks.length > prevTaskCountRef.current && stackRef.current) {
-      // Small delay to let the DOM update with new height first
-      requestAnimationFrame(() => {
-        if (stackRef.current) stackRef.current.scrollTop = 0
-      })
+      stackRef.current.scrollTop = 0
     }
     prevTaskCountRef.current = tasks.length
   }, [tasks.length])
+
+  // Measure fall distance before first paint: from above the stack down to landing slot
+  useLayoutEffect(() => {
+    if (!newStoneId || !towerRef.current || !stackRef.current) return
+    const stack = stackRef.current
+    const tower = towerRef.current
+    stack.scrollTop = 0
+    const landingInView = tower.offsetTop + 48 - stack.scrollTop
+    const fall = Math.max(landingInView + 16, Math.round(stack.clientHeight * 0.55))
+    setFallFromPx(fall)
+    // Headroom above the tower so the stone isn't clipped while falling
+    setFallPadPx(Math.max(0, fall - landingInView))
+  }, [newStoneId, tasks.length])
 
   const addTask = useCallback((text: string) => {
     const newTask: Task = {
@@ -95,7 +107,11 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
     // Prepend: the new stone lands on top of the tower
     setTasks((prev) => [newTask, ...prev])
     setNewStoneId(newTask.id)
-    setTimeout(() => setNewStoneId(null), 900)
+    const fallMs = 640 + (hashString(newTask.id) % 160)
+    setTimeout(() => {
+      setNewStoneId(null)
+      setFallPadPx(0)
+    }, fallMs + 120)
   }, [])
 
   const removeTask = useCallback((id: string) => {
@@ -349,7 +365,16 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
           const towerH = PAD_TOP + STONE_H + (tasks.length - 1) * STEP + PAD_BOTTOM
 
           return (
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", minHeight: "100%" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "flex-end",
+                minHeight: "100%",
+                paddingTop: fallPadPx,
+                transition: newStoneId ? "none" : "padding-top 0.35s ease",
+              }}
+            >
             <div
               ref={towerRef}
               style={{ position: "relative", width: "100%", height: towerH, transformOrigin: "bottom center" }}
@@ -366,7 +391,7 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
                       top: topPos,
                       left: 0,
                       right: 0,
-                      zIndex: tasks.length - i,
+                      zIndex: task.id === newStoneId ? tasks.length + 10 : tasks.length - i,
                       // While a new stone drops in, existing stones' top + the
                       // container height change in lockstep (net zero on screen)
                       // — animating top would make the tower visibly jump.
@@ -408,7 +433,14 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
                   >
                     <div
                       className={task.id === newStoneId ? "stone-fall" : ""}
-                      style={task.id === newStoneId ? ({ "--fall-dur": `${520 + (hashString(task.id) % 200)}ms` } as React.CSSProperties) : undefined}
+                      style={
+                        task.id === newStoneId
+                          ? ({
+                              "--fall-dur": `${640 + (hashString(task.id) % 160)}ms`,
+                              "--fall-from": `${fallFromPx}px`,
+                            } as React.CSSProperties)
+                          : undefined
+                      }
                     >
                       <Stone
                         id={task.id}
