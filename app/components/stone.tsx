@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useRef } from "react"
 import {
   getStoneShapeByHash,
   getStoneTransform,
@@ -20,6 +20,10 @@ export interface StoneProps {
   isCompleted?: boolean
   className?: string
   isDragging?: boolean
+  isEditing?: boolean
+  onStartEdit?: () => void
+  onSubmitEdit?: (text: string) => void
+  onCancelEdit?: () => void
 }
 
 const STONE_W = 160
@@ -38,7 +42,21 @@ export function Stone({
   isCompleted = false,
   className = "",
   isDragging = false,
+  isEditing = false,
+  onStartEdit,
+  onSubmitEdit,
+  onCancelEdit,
 }: StoneProps) {
+  const editInputRef = useRef<HTMLInputElement>(null)
+
+  const submitEdit = () => {
+    const value = editInputRef.current?.value.trim()
+    if (value && value !== text) {
+      onSubmitEdit?.(value)
+    } else {
+      onCancelEdit?.()
+    }
+  }
   const shape = useMemo(() => getStoneShapeByHash(id), [id])
   const transform = useMemo(() => getStoneTransform(id), [id])
   const clipId = useMemo(() => `clip-${id.replace(/[^a-zA-Z0-9]/g, "")}`, [id])
@@ -128,17 +146,55 @@ export function Stone({
           transform: "translateY(-50%)",
         }}
       >
-        <span
-          className="leading-snug font-medium"
-          style={{
-            fontSize: isExpanded ? "15px" : "13px",
-            wordBreak: "break-word",
-            color: textColor,
-            transition: "color 0.3s ease, font-size 0.35s ease",
-          }}
-        >
-          {text}
-        </span>
+        {isEditing ? (
+          <input
+            ref={editInputRef}
+            type="text"
+            defaultValue={text}
+            autoFocus
+            onFocus={(e) => e.currentTarget.select()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitEdit()
+              if (e.key === "Escape") onCancelEdit?.()
+            }}
+            onBlur={submitEdit}
+            className="leading-snug font-medium text-center bg-transparent outline-none"
+            style={{
+              fontSize: isExpanded ? "15px" : "13px",
+              color: textColor,
+              width: w - 60,
+              pointerEvents: "auto",
+              borderBottom: `1px solid ${textColor}`,
+              paddingBottom: "2px",
+            }}
+            aria-label="Edit task name"
+          />
+        ) : (
+          <span
+            className="leading-snug font-medium"
+            style={{
+              fontSize: isExpanded ? "15px" : "13px",
+              wordBreak: "break-word",
+              color: textColor,
+              transition: "color 0.3s ease, font-size 0.35s ease",
+              // Tap on the text edits in place; hold still completes
+              // (only short taps are intercepted — see onPointerUp)
+              pointerEvents: onStartEdit ? "auto" : undefined,
+              cursor: onStartEdit ? "text" : undefined,
+            }}
+            onPointerUp={(e) => {
+              if (onStartEdit && !isCompleting) {
+                e.stopPropagation()
+                onStartEdit()
+              }
+            }}
+          >
+            {text}
+          </span>
+        )}
         {isExpanded && dateStr && (
           <span
             style={{

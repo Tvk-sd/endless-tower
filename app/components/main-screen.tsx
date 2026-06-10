@@ -29,10 +29,12 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [newStoneId, setNewStoneId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const holdDetectRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pointerDownTimeRef = useRef<number>(0)
+  const lastEditEndRef = useRef<number>(0)
   const holdActiveRef = useRef<boolean>(false)
   const stackRef = useRef<HTMLDivElement>(null)
   const prevTaskCountRef = useRef<number>(initialTasks.length)
@@ -101,6 +103,12 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
     setExpandedId(null)
   }, [])
 
+  const updateTaskText = useCallback((id: string, text: string) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, text } : t))
+    )
+  }, [])
+
   const updatePriority = useCallback((id: string, priority: Task["priority"]) => {
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, priority } : t))
@@ -162,8 +170,29 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
     }
   }, [])
 
+  // Tap on the stone's text — cancel any pending hold and switch to editing
+  const startEdit = useCallback((id: string) => {
+    clearAllTimers()
+    setCompletingId(null)
+    setCompletionProgress(0)
+    holdActiveRef.current = false
+    setEditingId(id)
+  }, [clearAllTimers])
+
+  const finishEdit = useCallback((id: string, text?: string) => {
+    if (text) updateTaskText(id, text)
+    setEditingId(null)
+    // Remember when editing ended so the blur-triggering tap
+    // doesn't also toggle the stone's expanded state
+    lastEditEndRef.current = Date.now()
+  }, [updateTaskText])
+
   const handlePointerDown = useCallback(
     (id: string, isCompleted: boolean) => {
+      if (editingId) {
+        pointerDownTimeRef.current = Date.now()
+        return
+      }
       if (expandedId) {
         // Still record time so handlePointerUp can detect a tap-to-close
         pointerDownTimeRef.current = Date.now()
@@ -198,7 +227,7 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
         }, 300)
       }
     },
-    [expandedId, completeTask, clearAllTimers]
+    [expandedId, editingId, completeTask, clearAllTimers]
   )
 
   const handlePointerUp = useCallback(
@@ -209,6 +238,8 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
       if (!holdActiveRef.current && duration < 300) {
         // Short tap -- toggle expand for any stone (completed or not)
         if (completingId) return
+        // Ignore the tap that just dismissed an inline edit (input blur)
+        if (Date.now() - lastEditEndRef.current < 400) return
         setExpandedId((prev) => (prev === id ? null : id))
       }
 
@@ -348,7 +379,7 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
                           ? "translateY(14px)"
                           : "translateY(0)",
                     }}
-                    draggable={!expandedId && !completingId && !isCompleted}
+                    draggable={!expandedId && !completingId && !isCompleted && !editingId}
                     onDragStart={(e) => {
                       e.dataTransfer.effectAllowed = "move"
                       handleDragStart(i)
@@ -391,6 +422,10 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
                         }
                         isCompleted={isCompleted}
                         isDragging={dragIndex === i}
+                        isEditing={editingId === task.id}
+                        onStartEdit={!isCompleted ? () => startEdit(task.id) : undefined}
+                        onSubmitEdit={(text) => finishEdit(task.id, text)}
+                        onCancelEdit={() => finishEdit(task.id)}
                       />
 
                       {expandedId === task.id && (
