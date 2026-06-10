@@ -52,7 +52,7 @@ export function AddStoneButton({ onAdd }: AddStoneButtonProps) {
             className="text-center bg-transparent border-b border-foreground text-foreground placeholder:text-foreground/30 outline-none pb-2"
             style={{
               fontSize: "13px",
-              width: "240px",
+              width: "min(240px, calc(100vw - 48px))",
             }}
             aria-label="New task name"
           />

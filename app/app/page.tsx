@@ -33,20 +33,13 @@ export default function Page() {
     setScreen("main")
   }, [appState])
 
-  // Mobile frame wrapper — full screen on mobile, 390x844 framed on desktop
+  // Full-bleed on phones; framed handset preview on larger screens
   return (
     <div
-      className="flex items-center justify-center min-h-screen sm:min-h-screen"
-      style={{ backgroundColor: "#E8E6E1" }}
+      className="flex min-h-dvh items-center justify-center bg-[#E8E6E1]"
     >
       <div
-        className="relative overflow-hidden sm:shadow-2xl"
-        style={{
-          width: "min(390px, 100vw)",
-          height: "100dvh",
-          maxHeight: "844px",
-          backgroundColor: "#F7F5F0",
-        }}
+        className="app-shell relative h-dvh w-full overflow-hidden bg-[#F7F5F0] sm:h-dvh sm:w-[390px] sm:max-h-[844px] sm:shadow-2xl"
       >
         {screen === "loading" && (
           <LoadingScreen onComplete={handleLoadingComplete} />

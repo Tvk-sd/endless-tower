@@ -13,7 +13,7 @@ interface ArchiveScreenProps {
 export function ArchiveScreen({ sessions, onBack, onSelectSession }: ArchiveScreenProps) {
   return (
     <div
-      className="flex flex-col min-h-screen px-6 pt-10 pb-16"
+      className="app-footer flex flex-col h-full overflow-y-auto px-6 pt-10 pb-16"
       style={{ backgroundColor: "#F7F5F0" }}
     >
       <div className="flex items-center justify-between mb-10">

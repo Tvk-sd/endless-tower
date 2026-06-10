@@ -33,7 +33,7 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
 
   return (
     <div
-      className="flex flex-col items-center justify-center min-h-screen"
+      className="flex flex-col items-center justify-center h-full"
       style={{
         backgroundColor: "#F7F5F0",
         opacity: fading ? 0 : visible ? 1 : 0,

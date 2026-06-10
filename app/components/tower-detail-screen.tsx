@@ -5,18 +5,18 @@ import type { CompletedSession } from "@/lib/store"
 import { Stone } from "./stone"
 import { AddStoneButton } from "./add-stone-button"
 import { hashString } from "@/lib/stone-paths"
+import {
+  TOWER_PAD_TOP,
+  STONE_STEP,
+  getTowerHeight,
+} from "@/lib/tower-layout"
+import { useTowerScale } from "@/hooks/use-tower-scale"
 
 interface TowerDetailScreenProps {
   session: CompletedSession
   onBack: () => void
   onAddTask: (text: string) => string
 }
-
-const STONE_H = 208
-const OVERLAP = 72
-const STEP = STONE_H - OVERLAP
-const PAD_TOP = 48
-const PAD_BOTTOM = 0
 
 export function TowerDetailScreen({
   session,
@@ -30,7 +30,10 @@ export function TowerDetailScreen({
     day: "numeric",
     year: "numeric",
   })
-  const towerH = PAD_TOP + STONE_H + (tasks.length - 1) * STEP + PAD_BOTTOM
+  const scale = useTowerScale()
+  const PAD_TOP = TOWER_PAD_TOP * scale
+  const STEP = STONE_STEP * scale
+  const towerH = getTowerHeight(tasks.length, scale)
 
   const [newStoneId, setNewStoneId] = useState<string | null>(null)
   const [fallingId, setFallingId] = useState<string | null>(null)
@@ -53,12 +56,12 @@ export function TowerDetailScreen({
     const stack = stackRef.current
     const tower = towerRef.current
     stack.scrollTop = 0
-    const landingInView = tower.offsetTop + PAD_TOP - stack.scrollTop
+    const landingInView = tower.offsetTop + TOWER_PAD_TOP * scale - stack.scrollTop
     const fall = Math.max(landingInView + 16, Math.round(stack.clientHeight * 0.55))
     setFallFromPx(fall)
     setFallPadPx(Math.max(0, fall - landingInView))
     setFallingId(newStoneId)
-  }, [newStoneId, tasks.length])
+  }, [newStoneId, tasks.length, scale])
 
   const handleAdd = (text: string) => {
     const id = onAddTask(text)
@@ -173,6 +176,7 @@ export function TowerDetailScreen({
                         text={task.text}
                         createdAt={task.createdAt}
                         isCompleted={!!task.completedAt}
+                        scale={scale}
                         readOnly
                       />
                     </div>
@@ -185,8 +189,8 @@ export function TowerDetailScreen({
       </div>
 
       <div
-        className="flex flex-col items-center justify-start"
-        style={{ paddingTop: "4px", paddingBottom: "20px", flexShrink: 0 }}
+        className="app-footer flex flex-col items-center justify-start"
+        style={{ paddingTop: "4px", flexShrink: 0 }}
       >
         <AddStoneButton onAdd={handleAdd} />
       </div>

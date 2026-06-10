@@ -61,9 +61,27 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    height: 100%;
+    overflow: hidden;
+  }
   body {
     @apply bg-background text-foreground;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
+}
+
+/* Mobile shell — respect notch & home indicator */
+.app-shell {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.app-footer {
+  padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
 }
 
 @keyframes fill-stone {

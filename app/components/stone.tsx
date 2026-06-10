@@ -22,6 +22,7 @@ export interface StoneProps {
   isDragging?: boolean
   isEditing?: boolean
   readOnly?: boolean
+  scale?: number
   onStartEdit?: () => void
   onSubmitEdit?: (text: string) => void
   onCancelEdit?: () => void
@@ -45,6 +46,7 @@ export function Stone({
   isDragging = false,
   isEditing = false,
   readOnly = false,
+  scale = 1,
   onStartEdit,
   onSubmitEdit,
   onCancelEdit,
@@ -64,8 +66,8 @@ export function Stone({
   const clipId = useMemo(() => `clip-${id.replace(/[^a-zA-Z0-9]/g, "")}`, [id])
   const fillColor = useMemo(() => getCompletionColor(id), [id])
 
-  const w = isExpanded ? EXPANDED_W : STONE_W
-  const h = isExpanded ? EXPANDED_H : STONE_H
+  const w = (isExpanded ? EXPANDED_W : STONE_W) * scale
+  const h = (isExpanded ? EXPANDED_H : STONE_H) * scale
 
   const isFilled = isCompleted || (isCompleting && completionProgress >= 100)
   const fillProgress = isCompleted ? 100 : completionProgress
@@ -165,9 +167,9 @@ export function Stone({
             onBlur={submitEdit}
             className="leading-snug font-medium text-center bg-transparent outline-none"
             style={{
-              fontSize: isExpanded ? "15px" : "13px",
-              color: textColor,
-              width: w - 60,
+            fontSize: `${Math.max(11, (isExpanded ? 15 : 13) * scale)}px`,
+            color: textColor,
+            width: w - 60 * scale,
               pointerEvents: "auto",
               borderBottom: `1px solid ${textColor}`,
               paddingBottom: "2px",
@@ -178,7 +180,7 @@ export function Stone({
           <span
             className="leading-snug font-medium"
             style={{
-              fontSize: isExpanded ? "15px" : "13px",
+              fontSize: `${Math.max(11, (isExpanded ? 15 : 13) * scale)}px`,
               wordBreak: "break-word",
               color: textColor,
               transition: "color 0.3s ease, font-size 0.35s ease",

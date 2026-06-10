@@ -10,6 +10,12 @@ import type { Task, CompletedSession } from "@/lib/store"
 import { generateId, saveState, saveTower } from "@/lib/store"
 import { SaveTowerDialog } from "./save-tower-dialog"
 import { getStoneShapeByHash, getStackOverlap, hashString } from "@/lib/stone-paths"
+import {
+  TOWER_PAD_TOP,
+  STONE_STEP,
+  getTowerHeight,
+} from "@/lib/tower-layout"
+import { useTowerScale } from "@/hooks/use-tower-scale"
 
 interface MainScreenProps {
   initialTasks: Task[]
@@ -44,6 +50,7 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
   const stackRef = useRef<HTMLDivElement>(null)
   const prevTaskCountRef = useRef<number>(initialTasks.length)
   const towerRef = useRef<HTMLDivElement>(null)
+  const scale = useTowerScale()
 
   useEffect(() => {
     saveState({ tasks, sessions, hasOnboarded })
@@ -93,14 +100,14 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
     const stack = stackRef.current
     const tower = towerRef.current
     stack.scrollTop = 0
-    const landingInView = tower.offsetTop + 48 - stack.scrollTop
+    const landingInView = tower.offsetTop + TOWER_PAD_TOP * scale - stack.scrollTop
     const fall = Math.max(landingInView + 16, Math.round(stack.clientHeight * 0.55))
     setFallFromPx(fall)
     // Headroom above the tower so the stone isn't clipped while falling
     setFallPadPx(Math.max(0, fall - landingInView))
     // Start the drop animation only after distance is measured
     setFallingId(newStoneId)
-  }, [newStoneId, tasks.length])
+  }, [newStoneId, tasks.length, scale])
 
   const addTask = useCallback((text: string) => {
     const newTask: Task = {
@@ -407,13 +414,9 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
             </p>
           </div>
         ) : (() => {
-          // Each stone is 208px tall, overlapping by 72px → 136px step per stone
-          const STONE_H = 208
-          const OVERLAP = 72
-          const STEP = STONE_H - OVERLAP
-          const PAD_TOP = 48
-          const PAD_BOTTOM = 0
-          const towerH = PAD_TOP + STONE_H + (tasks.length - 1) * STEP + PAD_BOTTOM
+          const PAD_TOP = TOWER_PAD_TOP * scale
+          const STEP = STONE_STEP * scale
+          const towerH = getTowerHeight(tasks.length, scale)
 
           return (
             <div
@@ -497,6 +500,7 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
                         id={task.id}
                         text={task.text}
                         createdAt={task.createdAt}
+                        scale={scale}
                         isExpanded={expandedId === task.id}
                         isFaded={expandedId !== null && expandedId !== task.id}
                         isCompleting={completingId === task.id}
@@ -531,8 +535,8 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
 
       {/* Add stone area */}
       <div
-        className="flex flex-col items-center justify-start"
-        style={{ paddingTop: "4px", paddingBottom: "20px", flexShrink: 0 }}
+        className="app-footer flex flex-col items-center justify-start"
+        style={{ paddingTop: "4px", flexShrink: 0 }}
       >
         <AddStoneButton onAdd={addTask} />
 
