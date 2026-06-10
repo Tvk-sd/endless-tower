@@ -7,9 +7,10 @@ import { hashString } from "@/lib/stone-paths"
 interface ArchiveScreenProps {
   sessions: CompletedSession[]
   onBack: () => void
+  onSelectSession: (id: string) => void
 }
 
-export function ArchiveScreen({ sessions, onBack }: ArchiveScreenProps) {
+export function ArchiveScreen({ sessions, onBack, onSelectSession }: ArchiveScreenProps) {
   return (
     <div
       className="flex flex-col min-h-screen px-6 pt-10 pb-16"
@@ -37,7 +38,7 @@ export function ArchiveScreen({ sessions, onBack }: ArchiveScreenProps) {
           className="text-foreground opacity-40 text-center mt-20"
           style={{ fontSize: "13px" }}
         >
-          No towers completed yet
+          No towers saved yet
         </p>
       ) : (
         <div className="grid grid-cols-2" style={{ gap: "24px" }}>
@@ -51,11 +52,14 @@ export function ArchiveScreen({ sessions, onBack }: ArchiveScreenProps) {
             const completedCount = session.tasks.filter((t) => !!t.completedAt).length
 
             return (
-              <div
+              <button
                 key={session.id}
-                className="flex flex-col items-center animate-fade-in"
+                type="button"
+                onClick={() => onSelectSession(session.id)}
+                className="flex flex-col items-center animate-fade-in hover:opacity-80 transition-opacity text-left"
+                aria-label={`Open tower: ${session.name || dateStr}`}
               >
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-center pointer-events-none">
                   {extraCount > 0 && (
                     <p
                       className="text-foreground opacity-30 mb-1"
@@ -106,7 +110,7 @@ export function ArchiveScreen({ sessions, onBack }: ArchiveScreenProps) {
                 >
                   {session.tasks.length} {session.tasks.length === 1 ? "stone" : "stones"} · {completedCount} done
                 </p>
-              </div>
+              </button>
             )
           })}
         </div>

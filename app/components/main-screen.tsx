@@ -5,6 +5,7 @@ import { Stone, EXPANDED_W } from "./stone"
 import { AddStoneButton } from "./add-stone-button"
 import { StoneDetail } from "./stone-detail"
 import { ArchiveScreen } from "./archive-screen"
+import { TowerDetailScreen } from "./tower-detail-screen"
 import type { Task, CompletedSession } from "@/lib/store"
 import { generateId, saveState, saveTower } from "@/lib/store"
 import { SaveTowerDialog } from "./save-tower-dialog"
@@ -25,6 +26,7 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
   const [completingId, setCompletingId] = useState<string | null>(null)
   const [completionProgress, setCompletionProgress] = useState(0)
   const [showArchive, setShowArchive] = useState(false)
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
@@ -173,6 +175,21 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
     holdActiveRef.current = false
   }, [tasks])
 
+  const addTaskToSession = useCallback((sessionId: string, text: string) => {
+    const newTask: Task = {
+      id: generateId(),
+      text,
+      createdAt: Date.now(),
+      priority: "medium",
+    }
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === sessionId ? { ...s, tasks: [newTask, ...s.tasks] } : s
+      )
+    )
+    return newTask.id
+  }, [])
+
   const handleSave = useCallback((name: string, startFresh: boolean) => {
     setSessions((prev) => [...prev, saveTower(tasks, name)])
     if (startFresh) setTasks([])
@@ -297,10 +314,28 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
   }, [dragIndex, dragOverIndex])
 
   if (showArchive) {
+    const selectedSession = selectedSessionId
+      ? sessions.find((s) => s.id === selectedSessionId)
+      : null
+
+    if (selectedSession) {
+      return (
+        <TowerDetailScreen
+          session={selectedSession}
+          onBack={() => setSelectedSessionId(null)}
+          onAddTask={(text) => addTaskToSession(selectedSession.id, text)}
+        />
+      )
+    }
+
     return (
       <ArchiveScreen
         sessions={sessions}
-        onBack={() => setShowArchive(false)}
+        onBack={() => {
+          setShowArchive(false)
+          setSelectedSessionId(null)
+        }}
+        onSelectSession={setSelectedSessionId}
       />
     )
   }

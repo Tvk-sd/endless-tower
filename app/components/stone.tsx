@@ -21,6 +21,7 @@ export interface StoneProps {
   className?: string
   isDragging?: boolean
   isEditing?: boolean
+  readOnly?: boolean
   onStartEdit?: () => void
   onSubmitEdit?: (text: string) => void
   onCancelEdit?: () => void
@@ -43,6 +44,7 @@ export function Stone({
   className = "",
   isDragging = false,
   isEditing = false,
+  readOnly = false,
   onStartEdit,
   onSubmitEdit,
   onCancelEdit,
@@ -87,10 +89,10 @@ export function Stone({
         transform: `rotate(${isExpanded ? 0 : transform.rotation}deg) translateX(${isExpanded ? 0 : transform.offsetX}px) ${isDragging ? "scale(1.08)" : "scale(1)"}`,
         transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
         zIndex: isDragging ? 50 : "auto",
-        cursor: isDragging ? "grabbing" : "pointer",
+        cursor: readOnly ? "default" : isDragging ? "grabbing" : "pointer",
       }}
-      role="button"
-      tabIndex={0}
+      role={readOnly ? undefined : "button"}
+      tabIndex={readOnly ? undefined : 0}
       aria-label={`Task: ${text}${isCompleted ? " (completed)" : ""}`}
     >
       <svg
@@ -182,11 +184,11 @@ export function Stone({
               transition: "color 0.3s ease, font-size 0.35s ease",
               // Tap on the text edits in place; hold still completes
               // (only short taps are intercepted — see onPointerUp)
-              pointerEvents: onStartEdit ? "auto" : undefined,
-              cursor: onStartEdit ? "text" : undefined,
+              pointerEvents: onStartEdit && !readOnly ? "auto" : undefined,
+              cursor: onStartEdit && !readOnly ? "text" : undefined,
             }}
             onPointerUp={(e) => {
-              if (onStartEdit && !isCompleting) {
+              if (onStartEdit && !readOnly && !isCompleting) {
                 e.stopPropagation()
                 onStartEdit()
               }
