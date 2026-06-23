@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useRef } from "react"
+import { useMemo, useRef, type RefObject } from "react"
 import {
   getStoneShapeByHash,
   getStoneTransform,
@@ -23,6 +23,14 @@ export interface StoneProps {
   isEditing?: boolean
   readOnly?: boolean
   scale?: number
+  /** Explicit render size (includes viewport scale). Overrides default W/H × scale. */
+  width?: number
+  height?: number
+  fontSize?: number
+  editText?: string
+  onEditTextChange?: (text: string) => void
+  editPlaceholder?: string
+  inputRef?: RefObject<HTMLInputElement | null>
   onStartEdit?: () => void
   onSubmitEdit?: (text: string) => void
   onCancelEdit?: () => void
@@ -47,14 +55,23 @@ export function Stone({
   isEditing = false,
   readOnly = false,
   scale = 1,
+  width: widthProp,
+  height: heightProp,
+  fontSize: fontSizeProp,
+  editText,
+  onEditTextChange,
+  editPlaceholder,
+  inputRef: inputRefProp,
   onStartEdit,
   onSubmitEdit,
   onCancelEdit,
 }: StoneProps) {
-  const editInputRef = useRef<HTMLInputElement>(null)
+  const localInputRef = useRef<HTMLInputElement>(null)
+  const inputRef = inputRefProp ?? localInputRef
+  const isControlledEdit = editText !== undefined && onEditTextChange !== undefined
 
   const submitEdit = () => {
-    const value = editInputRef.current?.value.trim()
+    const value = (isControlledEdit ? editText : inputRef.current?.value)?.trim()
     if (value && value !== text) {
       onSubmitEdit?.(value)
     } else {
@@ -66,8 +83,9 @@ export function Stone({
   const clipId = useMemo(() => `clip-${id.replace(/[^a-zA-Z0-9]/g, "")}`, [id])
   const fillColor = useMemo(() => getCompletionColor(id), [id])
 
-  const w = (isExpanded ? EXPANDED_W : STONE_W) * scale
-  const h = (isExpanded ? EXPANDED_H : STONE_H) * scale
+  const w = widthProp ?? (isExpanded ? EXPANDED_W : STONE_W) * scale
+  const h = heightProp ?? (isExpanded ? EXPANDED_H : STONE_H) * scale
+  const textFontSize = fontSizeProp ?? Math.max(11, (isExpanded ? 15 : 13) * scale)
 
   const isFilled = isCompleted || (isCompleting && completionProgress >= 100)
   const fillProgress = isCompleted ? 100 : completionProgress
@@ -152,10 +170,17 @@ export function Stone({
       >
         {isEditing ? (
           <input
-            ref={editInputRef}
+            ref={inputRef}
             type="text"
-            defaultValue={text}
-            autoFocus
+            value={isControlledEdit ? editText : undefined}
+            defaultValue={isControlledEdit ? undefined : text}
+            onChange={
+              isControlledEdit
+                ? (e) => onEditTextChange(e.target.value)
+                : undefined
+            }
+            autoFocus={!inputRefProp}
+            placeholder={editPlaceholder}
             onFocus={(e) => e.currentTarget.select()}
             onPointerDown={(e) => e.stopPropagation()}
             onPointerUp={(e) => e.stopPropagation()}
@@ -164,12 +189,12 @@ export function Stone({
               if (e.key === "Enter") submitEdit()
               if (e.key === "Escape") onCancelEdit?.()
             }}
-            onBlur={submitEdit}
-            className="leading-snug font-medium text-center bg-transparent outline-none"
+            onBlur={inputRefProp ? undefined : submitEdit}
+            className="leading-snug font-medium text-center bg-transparent outline-none placeholder:text-foreground/30"
             style={{
-            fontSize: `${Math.max(11, (isExpanded ? 15 : 13) * scale)}px`,
-            color: textColor,
-            width: w - 60 * scale,
+              fontSize: `${isEditing ? Math.max(16, textFontSize) : textFontSize}px`,
+              color: textColor,
+              width: w - 60 * scale,
               pointerEvents: "auto",
               borderBottom: `1px solid ${textColor}`,
               paddingBottom: "2px",
@@ -180,7 +205,7 @@ export function Stone({
           <span
             className="leading-snug font-medium"
             style={{
-              fontSize: `${Math.max(11, (isExpanded ? 15 : 13) * scale)}px`,
+              fontSize: `${textFontSize}px`,
               wordBreak: "break-word",
               color: textColor,
               transition: "color 0.3s ease, font-size 0.35s ease",

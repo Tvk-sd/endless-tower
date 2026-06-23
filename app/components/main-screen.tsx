@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react"
-import { Stone, EXPANDED_W } from "./stone"
+import { flushSync } from "react-dom"
+import { Stone } from "./stone"
 import { AddStoneButton } from "./add-stone-button"
 import { StoneDetail } from "./stone-detail"
 import { ArchiveScreen } from "./archive-screen"
@@ -9,6 +10,7 @@ import { TowerDetailScreen } from "./tower-detail-screen"
 import type { Task, CompletedSession } from "@/lib/store"
 import { generateId, saveState, saveTower } from "@/lib/store"
 import { SaveTowerDialog } from "./save-tower-dialog"
+import { CompositionOverlay, type CompositionMode } from "./composition-overlay"
 import { getStoneShapeByHash, getStackOverlap, hashString } from "@/lib/stone-paths"
 import {
   TOWER_PAD_TOP,
@@ -40,7 +42,8 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
   const [fallingId, setFallingId] = useState<string | null>(null)
   const [fallFromPx, setFallFromPx] = useState(360)
   const [fallPadPx, setFallPadPx] = useState(0)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [composition, setComposition] = useState<CompositionMode | null>(null)
+  const compositionInputRef = useRef<HTMLInputElement>(null)
 
   const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const holdDetectRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -109,9 +112,9 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
     setFallingId(newStoneId)
   }, [newStoneId, tasks.length, scale])
 
-  const addTask = useCallback((text: string) => {
+  const addTask = useCallback((text: string, id?: string) => {
     const newTask: Task = {
-      id: generateId(),
+      id: id ?? generateId(),
       text,
       createdAt: Date.now(),
       priority: "medium",
@@ -180,11 +183,12 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
     setCompletingId(null)
     setCompletionProgress(0)
     holdActiveRef.current = false
+    setExpandedId((prev) => (prev === id ? null : prev))
   }, [tasks])
 
-  const addTaskToSession = useCallback((sessionId: string, text: string) => {
+  const addTaskToSession = useCallback((sessionId: string, text: string, id?: string) => {
     const newTask: Task = {
-      id: generateId(),
+      id: id ?? generateId(),
       text,
       createdAt: Date.now(),
       priority: "medium",
@@ -214,31 +218,71 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
     }
   }, [])
 
-  // Tap on the stone's text — cancel any pending hold and switch to editing
-  const startEdit = useCallback((id: string) => {
+  const focusCompositionInput = useCallback(() => {
+    compositionInputRef.current?.focus({ preventScroll: true })
+  }, [])
+
+  // Open composition overlay — tower dims instantly; stone appears; keyboard follows
+  const startCompositionAdd = useCallback(() => {
     clearAllTimers()
+    setExpandedId(null)
     setCompletingId(null)
     setCompletionProgress(0)
     holdActiveRef.current = false
-    setEditingId(id)
-  }, [clearAllTimers])
+    flushSync(() => {
+      setComposition({ type: "add", stoneId: generateId() })
+    })
+    focusCompositionInput()
+  }, [clearAllTimers, focusCompositionInput])
 
-  const finishEdit = useCallback((id: string, text?: string) => {
-    if (text) updateTaskText(id, text)
-    setEditingId(null)
-    // Remember when editing ended so the blur-triggering tap
-    // doesn't also toggle the stone's expanded state
-    lastEditEndRef.current = Date.now()
-  }, [updateTaskText])
+  const startCompositionEdit = useCallback(
+    (id: string) => {
+      const task = tasks.find((t) => t.id === id)
+      if (!task || task.completedAt) return
+      clearAllTimers()
+      setExpandedId(null)
+      setCompletingId(null)
+      setCompletionProgress(0)
+      holdActiveRef.current = false
+      flushSync(() => {
+        setComposition({
+          type: "edit",
+          stoneId: id,
+          initialText: task.text,
+        })
+      })
+      focusCompositionInput()
+    },
+    [tasks, clearAllTimers, focusCompositionInput]
+  )
+
+  const cancelComposition = useCallback(() => {
+    setComposition(null)
+  }, [])
+
+  const submitComposition = useCallback(
+    (text: string) => {
+      if (!composition) return
+      const mode = composition
+      setComposition(null)
+      lastEditEndRef.current = Date.now()
+      if (mode.type === "add") {
+        addTask(text, mode.stoneId)
+      } else {
+        updateTaskText(mode.stoneId, text)
+      }
+    },
+    [composition, addTask, updateTaskText]
+  )
 
   const handlePointerDown = useCallback(
     (id: string, isCompleted: boolean) => {
-      if (editingId) {
+      if (composition) {
         pointerDownTimeRef.current = Date.now()
         return
       }
-      if (expandedId) {
-        // Still record time so handlePointerUp can detect a tap-to-close
+      if (expandedId && expandedId !== id) {
+        // Another stone is expanded — ignore interaction on faded stones
         pointerDownTimeRef.current = Date.now()
         return
       }
@@ -271,7 +315,7 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
         }, 300)
       }
     },
-    [expandedId, editingId, completeTask, clearAllTimers]
+    [expandedId, composition, completeTask, clearAllTimers]
   )
 
   const handlePointerUp = useCallback(
@@ -330,7 +374,7 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
         <TowerDetailScreen
           session={selectedSession}
           onBack={() => setSelectedSessionId(null)}
-          onAddTask={(text) => addTaskToSession(selectedSession.id, text)}
+          onAddTask={(text, id) => addTaskToSession(selectedSession.id, text, id)}
         />
       )
     }
@@ -352,6 +396,14 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
       className="flex flex-col h-full relative"
       style={{ backgroundColor: "#F7F5F0" }}
     >
+      <div
+        className="flex flex-col flex-1 min-h-0"
+        style={{
+          opacity: composition ? 0.15 : 1,
+          pointerEvents: composition ? "none" : "auto",
+          transition: composition ? "none" : "opacity 0.35s ease",
+        }}
+      >
       <style>{`
         @keyframes stone-drop {
           0%   { transform: translateY(calc(-1 * var(--fall-from, 50dvh))); }
@@ -458,7 +510,7 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
                           ? "translateY(14px)"
                           : "translateY(0)",
                     }}
-                    draggable={!expandedId && !completingId && !isCompleted && !editingId}
+                    draggable={!expandedId && !completingId && !isCompleted && !composition}
                     onDragStart={(e) => {
                       e.dataTransfer.effectAllowed = "move"
                       handleDragStart(i)
@@ -509,15 +561,13 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
                         }
                         isCompleted={isCompleted}
                         isDragging={dragIndex === i}
-                        isEditing={editingId === task.id}
-                        onStartEdit={!isCompleted ? () => startEdit(task.id) : undefined}
-                        onSubmitEdit={(text) => finishEdit(task.id, text)}
-                        onCancelEdit={() => finishEdit(task.id)}
+                        onStartEdit={!isCompleted ? () => startCompositionEdit(task.id) : undefined}
                       />
 
                       {expandedId === task.id && (
                         <StoneDetail
                           task={task}
+                          onEdit={() => startCompositionEdit(task.id)}
                           onDelete={() => removeTask(task.id)}
                           onSetPriority={(p) => updatePriority(task.id, p)}
                           onClose={() => setExpandedId(null)}
@@ -538,9 +588,9 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
         className="app-footer flex flex-col items-center justify-start"
         style={{ paddingTop: "4px", flexShrink: 0 }}
       >
-        <AddStoneButton onAdd={addTask} />
+        <AddStoneButton onStartAdd={startCompositionAdd} />
 
-        {tasks.length > 0 && tasks.filter(t => !t.completedAt).length > 0 && !expandedId && !completingId && (
+        {tasks.length > 0 && tasks.filter(t => !t.completedAt).length > 0 && !completingId && !composition && (
           <p
             className="mt-4 text-foreground opacity-20"
             style={{ fontSize: "10px", letterSpacing: "0.02em" }}
@@ -549,6 +599,17 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
           </p>
         )}
       </div>
+      </div>
+
+      {composition && (
+        <CompositionOverlay
+          mode={composition}
+          scale={scale}
+          inputRef={compositionInputRef}
+          onSubmit={submitComposition}
+          onCancel={cancelComposition}
+        />
+      )}
     </div>
   )
 }

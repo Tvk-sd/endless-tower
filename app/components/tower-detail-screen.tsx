@@ -1,9 +1,12 @@
 "use client"
 
-import { useState, useRef, useEffect, useLayoutEffect } from "react"
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react"
+import { flushSync } from "react-dom"
 import type { CompletedSession } from "@/lib/store"
+import { generateId } from "@/lib/store"
 import { Stone } from "./stone"
 import { AddStoneButton } from "./add-stone-button"
+import { CompositionOverlay, type CompositionMode } from "./composition-overlay"
 import { hashString } from "@/lib/stone-paths"
 import {
   TOWER_PAD_TOP,
@@ -15,7 +18,7 @@ import { useTowerScale } from "@/hooks/use-tower-scale"
 interface TowerDetailScreenProps {
   session: CompletedSession
   onBack: () => void
-  onAddTask: (text: string) => string
+  onAddTask: (text: string, id?: string) => string
 }
 
 export function TowerDetailScreen({
@@ -39,6 +42,8 @@ export function TowerDetailScreen({
   const [fallingId, setFallingId] = useState<string | null>(null)
   const [fallFromPx, setFallFromPx] = useState(360)
   const [fallPadPx, setFallPadPx] = useState(0)
+  const [composition, setComposition] = useState<CompositionMode | null>(null)
+  const compositionInputRef = useRef<HTMLInputElement>(null)
 
   const stackRef = useRef<HTMLDivElement>(null)
   const towerRef = useRef<HTMLDivElement>(null)
@@ -63,22 +68,53 @@ export function TowerDetailScreen({
     setFallingId(newStoneId)
   }, [newStoneId, tasks.length, scale])
 
-  const handleAdd = (text: string) => {
-    const id = onAddTask(text)
-    setNewStoneId(id)
-    const fallMs = 640 + (hashString(id) % 160)
-    setTimeout(() => {
-      setNewStoneId(null)
-      setFallingId(null)
-      setFallPadPx(0)
-    }, fallMs + 120)
-  }
+  const handleAdd = useCallback(
+    (text: string, id: string) => {
+      onAddTask(text, id)
+      setNewStoneId(id)
+      const fallMs = 640 + (hashString(id) % 160)
+      setTimeout(() => {
+        setNewStoneId(null)
+        setFallingId(null)
+        setFallPadPx(0)
+      }, fallMs + 120)
+    },
+    [onAddTask]
+  )
+
+  const focusCompositionInput = useCallback(() => {
+    compositionInputRef.current?.focus({ preventScroll: true })
+  }, [])
+
+  const startCompositionAdd = useCallback(() => {
+    flushSync(() => {
+      setComposition({ type: "add", stoneId: generateId() })
+    })
+    focusCompositionInput()
+  }, [focusCompositionInput])
+
+  const submitComposition = useCallback(
+    (text: string) => {
+      if (!composition || composition.type !== "add") return
+      handleAdd(text, composition.stoneId)
+      setComposition(null)
+    },
+    [composition, handleAdd]
+  )
 
   return (
     <div
-      className="flex flex-col h-full"
+      className="flex flex-col h-full relative"
       style={{ backgroundColor: "#F7F5F0" }}
     >
+      <div
+        className="flex flex-col flex-1 min-h-0"
+        style={{
+          opacity: composition ? 0.15 : 1,
+          pointerEvents: composition ? "none" : "auto",
+          transition: composition ? "none" : "opacity 0.35s ease",
+        }}
+      >
       <style>{`
         @keyframes stone-drop {
           0%   { transform: translateY(calc(-1 * var(--fall-from, 50dvh))); }
@@ -192,8 +228,19 @@ export function TowerDetailScreen({
         className="app-footer flex flex-col items-center justify-start"
         style={{ paddingTop: "4px", flexShrink: 0 }}
       >
-        <AddStoneButton onAdd={handleAdd} />
+        <AddStoneButton onStartAdd={startCompositionAdd} />
       </div>
+      </div>
+
+      {composition && (
+        <CompositionOverlay
+          mode={composition}
+          scale={scale}
+          inputRef={compositionInputRef}
+          onSubmit={submitComposition}
+          onCancel={() => setComposition(null)}
+        />
+      )}
     </div>
   )
 }

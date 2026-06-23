@@ -6,10 +6,12 @@ import { OnboardingScreen } from "@/components/onboarding-screen"
 import { MainScreen } from "@/components/main-screen"
 import { loadState, saveState } from "@/lib/store"
 import type { AppScreen, AppState } from "@/lib/store"
+import { useAppHeight } from "@/hooks/use-app-height"
 
 export default function Page() {
   const [screen, setScreen] = useState<AppScreen>("loading")
   const [appState, setAppState] = useState<AppState | null>(null)
+  useAppHeight()
 
   useEffect(() => {
     const state = loadState()
@@ -39,7 +41,7 @@ export default function Page() {
       className="flex min-h-dvh items-center justify-center bg-[#E8E6E1]"
     >
       <div
-        className="app-shell relative h-dvh w-full overflow-hidden bg-[#F7F5F0] sm:h-dvh sm:w-[390px] sm:max-h-[844px] sm:shadow-2xl"
+        className="app-shell relative h-[var(--app-height,100dvh)] w-full overflow-hidden bg-[#F7F5F0] sm:h-[var(--app-height,100dvh)] sm:w-[390px] sm:max-h-[844px] sm:shadow-2xl"
       >
         {screen === "loading" && (
           <LoadingScreen onComplete={handleLoadingComplete} />
