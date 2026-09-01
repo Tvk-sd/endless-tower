@@ -55,7 +55,7 @@ a high-drama transition with a low-value, destructive-first payoff.
 
 ---
 
-## 3. Undo for destructive actions
+## 3. Undo for destructive actions — DONE (Sep 1 2026)
 
 **Problem.** Delete is one tap and irreversible; complete is irreversible.
 No forgiveness contradicts the app's calm personality.
@@ -66,14 +66,14 @@ above the + button for 5 seconds. Tapping it restores the previous state
 in the existing type system.
 
 **Acceptance criteria.**
-- [ ] AC1: "undo" appears within 200ms of a delete or complete and fades out
+- [x] AC1: "undo" appears within 200ms of a delete or complete and fades out
   after ~5s.
-- [ ] AC2: Undo after delete restores the stone at its original index.
-- [ ] AC3: Undo after complete reverts `completedAt` (stone returns to
+- [x] AC2: Undo after delete restores the stone at its original index.
+- [x] AC3: Undo after complete reverts `completedAt` (stone returns to
   outline state).
-- [ ] AC4: A new destructive action replaces the previous undo window
+- [x] AC4: A new destructive action replaces the previous undo window
   (single-level undo only).
-- [ ] AC5: Undo is keyboard-focusable.
+- [x] AC5: Undo is keyboard-focusable.
 
 ---
 
