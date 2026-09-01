@@ -114,7 +114,6 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
       id: generateId(),
       text,
       createdAt: Date.now(),
-      priority: "medium",
     }
     // Prepend: the new stone lands on top of the tower
     setTasks((prev) => [newTask, ...prev])
@@ -135,12 +134,6 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
   const updateTaskText = useCallback((id: string, text: string) => {
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, text } : t))
-    )
-  }, [])
-
-  const updatePriority = useCallback((id: string, priority: Task["priority"]) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, priority } : t))
     )
   }, [])
 
@@ -187,7 +180,6 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
       id: generateId(),
       text,
       createdAt: Date.now(),
-      priority: "medium",
     }
     setSessions((prev) =>
       prev.map((s) =>
@@ -519,7 +511,6 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
                         <StoneDetail
                           task={task}
                           onDelete={() => removeTask(task.id)}
-                          onSetPriority={(p) => updatePriority(task.id, p)}
                           onClose={() => setExpandedId(null)}
                         />
                       )}

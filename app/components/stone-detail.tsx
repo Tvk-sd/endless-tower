@@ -5,7 +5,6 @@ import type { Task } from "@/lib/store"
 interface StoneDetailProps {
   task: Task
   onDelete: () => void
-  onSetPriority: (priority: Task["priority"]) => void
   onClose: () => void
 }
 

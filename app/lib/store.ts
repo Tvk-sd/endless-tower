@@ -6,7 +6,6 @@ export interface Task {
   text: string
   createdAt: number
   completedAt?: number
-  priority: "low" | "medium" | "high"
 }
 
 export interface CompletedSession {
