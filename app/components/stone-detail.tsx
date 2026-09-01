@@ -17,6 +17,11 @@ export function StoneDetail({ task, onDelete }: StoneDetailProps) {
       <button
         className="text-foreground opacity-60 hover:opacity-100 transition-opacity font-medium"
         style={{ fontSize: "15px" }}
+        // Keep the tap from reaching the stone wrapper: its short-tap
+        // handler would collapse the panel on pointerup, unmounting this
+        // button before the browser dispatches the click
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation()
           onDelete()
