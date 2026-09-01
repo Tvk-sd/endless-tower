@@ -9,7 +9,7 @@ scope creep.
 
 ---
 
-## 1. Unify the archive model
+## 1. Unify the archive model — DONE (Sep 1 2026)
 
 **Problem.** `sessions` mixes two concepts: auto-created daily completion logs
 (written silently by `completeTask`) and manually saved towers. Users see
@@ -26,12 +26,12 @@ the user saves it.
   user data) but no new ones are created.
 
 **Acceptance criteria.**
-- [ ] AC1: Completing a stone does not change the Towers archive.
-- [ ] AC2: "Save & Keep Building" and "Save & Start New Tower" are the only
+- [x] AC1: Completing a stone does not change the Towers archive.
+- [x] AC2: "Save & Keep Building" and "Save & Start New Tower" are the only
   paths that add an archive entry.
-- [ ] AC3: Existing localStorage data loads without error; previously
+- [x] AC3: Existing localStorage data loads without error; previously
   auto-created sessions remain visible.
-- [ ] AC4: The "Towers" link only appears when at least one saved tower exists.
+- [x] AC4: The "Towers" link only appears when at least one saved tower exists.
 
 ---
 
@@ -77,7 +77,7 @@ in the existing type system.
 
 ---
 
-## 4. Remove the priority field
+## 4. Remove the priority field — DONE (Sep 1 2026)
 
 **Problem.** `priority` exists in the data model but has no UI and no effect.
 Drag-order already expresses priority. Two systems would compete.
@@ -86,11 +86,11 @@ Drag-order already expresses priority. Two systems would compete.
 copy "Drag to reprioritise" stays — it's now literally true.
 
 **Acceptance criteria.**
-- [ ] AC1: `priority` removed from the `Task` type and all call sites
+- [x] AC1: `priority` removed from the `Task` type and all call sites
   (`updatePriority`, `onSetPriority`, dead props in `stone-detail.tsx`).
-- [ ] AC2: Loading old localStorage data with priority fields doesn't error
+- [x] AC2: Loading old localStorage data with priority fields doesn't error
   (extra fields ignored).
-- [ ] AC3: `npx tsc --noEmit` passes.
+- [x] AC3: `npx tsc --noEmit` passes.
 
 ---
 
