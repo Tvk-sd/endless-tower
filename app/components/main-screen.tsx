@@ -137,43 +137,18 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
     )
   }, [])
 
-  // Mark a task as completed -- it stays in the stack with colored fill
+  // Mark a task as completed -- it stays in the stack with colored fill.
+  // Completions live in the current tower only; the archive is written
+  // exclusively through the Save dialog (handleSave).
   const completeTask = useCallback((id: string) => {
     const completedAt = Date.now()
-    const task = tasks.find((t) => t.id === id)
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, completedAt } : t))
     )
-    // Add to today's session for archive tracking.
-    // Kept outside the setTasks updater (updaters must be side-effect free —
-    // StrictMode double-invokes them, which previously duplicated entries).
-    if (task) {
-      const completed = { ...task, completedAt }
-      setSessions((prevSessions) => {
-        const today = new Date().toDateString()
-        const existing = prevSessions.find(
-          (s) => new Date(s.completedAt).toDateString() === today
-        )
-        if (existing) {
-          if (existing.tasks.some((t) => t.id === completed.id)) {
-            return prevSessions
-          }
-          return prevSessions.map((s) =>
-            s.id === existing.id
-              ? { ...s, tasks: [...s.tasks, completed] }
-              : s
-          )
-        }
-        return [
-          ...prevSessions,
-          { id: generateId(), tasks: [completed], completedAt },
-        ]
-      })
-    }
     setCompletingId(null)
     setCompletionProgress(0)
     holdActiveRef.current = false
-  }, [tasks])
+  }, [])
 
   const addTaskToSession = useCallback((sessionId: string, text: string) => {
     const newTask: Task = {
