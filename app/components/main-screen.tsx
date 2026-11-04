@@ -25,6 +25,11 @@ interface MainScreenProps {
 
 const ENABLE_SWING = false
 
+// Single-level undo for destructive actions (delete / complete)
+type UndoAction =
+  | { kind: "delete"; task: Task; index: number }
+  | { kind: "complete"; id: string }
+
 export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: MainScreenProps) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [sessions, setSessions] = useState<CompletedSession[]>(initialSessions)
@@ -41,6 +46,9 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
   const [fallFromPx, setFallFromPx] = useState(360)
   const [fallPadPx, setFallPadPx] = useState(0)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [undoAction, setUndoAction] = useState<UndoAction | null>(null)
+  const [undoVisible, setUndoVisible] = useState(false)
+  const undoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const holdDetectRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -114,7 +122,6 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
       id: generateId(),
       text,
       createdAt: Date.now(),
-      priority: "medium",
     }
     // Prepend: the new stone lands on top of the tower
     setTasks((prev) => [newTask, ...prev])
@@ -127,10 +134,56 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
     }, fallMs + 120)
   }, [])
 
+  // Offer a quiet single-level undo for ~5s; a new destructive action
+  // replaces the previous window (spec item 3)
+  const armUndo = useCallback((action: UndoAction) => {
+    undoTimersRef.current.forEach(clearTimeout)
+    setUndoAction(action)
+    setUndoVisible(false)
+    undoTimersRef.current = [
+      setTimeout(() => setUndoVisible(true), 20),
+      setTimeout(() => setUndoVisible(false), 4600),
+      setTimeout(() => setUndoAction(null), 5000),
+    ]
+  }, [])
+
+  const clearUndo = useCallback(() => {
+    undoTimersRef.current.forEach(clearTimeout)
+    undoTimersRef.current = []
+    setUndoAction(null)
+    setUndoVisible(false)
+  }, [])
+
+  useEffect(() => {
+    return () => undoTimersRef.current.forEach(clearTimeout)
+  }, [])
+
+  const performUndo = useCallback(() => {
+    if (!undoAction) return
+    if (undoAction.kind === "delete") {
+      setTasks((prev) => {
+        const next = [...prev]
+        next.splice(Math.min(undoAction.index, next.length), 0, undoAction.task)
+        return next
+      })
+    } else {
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === undoAction.id ? { ...t, completedAt: undefined } : t
+        )
+      )
+    }
+    clearUndo()
+  }, [undoAction, clearUndo])
+
   const removeTask = useCallback((id: string) => {
+    const index = tasks.findIndex((t) => t.id === id)
+    if (index === -1) return
+    const task = tasks[index]
     setTasks((prev) => prev.filter((t) => t.id !== id))
     setExpandedId(null)
-  }, [])
+    armUndo({ kind: "delete", task, index })
+  }, [tasks, armUndo])
 
   const updateTaskText = useCallback((id: string, text: string) => {
     setTasks((prev) =>
@@ -138,56 +191,25 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
     )
   }, [])
 
-  const updatePriority = useCallback((id: string, priority: Task["priority"]) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, priority } : t))
-    )
-  }, [])
-
-  // Mark a task as completed -- it stays in the stack with colored fill
+  // Mark a task as completed -- it stays in the stack with colored fill.
+  // Completions live in the current tower only; the archive is written
+  // exclusively through the Save dialog (handleSave).
   const completeTask = useCallback((id: string) => {
     const completedAt = Date.now()
-    const task = tasks.find((t) => t.id === id)
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, completedAt } : t))
     )
-    // Add to today's session for archive tracking.
-    // Kept outside the setTasks updater (updaters must be side-effect free —
-    // StrictMode double-invokes them, which previously duplicated entries).
-    if (task) {
-      const completed = { ...task, completedAt }
-      setSessions((prevSessions) => {
-        const today = new Date().toDateString()
-        const existing = prevSessions.find(
-          (s) => new Date(s.completedAt).toDateString() === today
-        )
-        if (existing) {
-          if (existing.tasks.some((t) => t.id === completed.id)) {
-            return prevSessions
-          }
-          return prevSessions.map((s) =>
-            s.id === existing.id
-              ? { ...s, tasks: [...s.tasks, completed] }
-              : s
-          )
-        }
-        return [
-          ...prevSessions,
-          { id: generateId(), tasks: [completed], completedAt },
-        ]
-      })
-    }
     setCompletingId(null)
     setCompletionProgress(0)
     holdActiveRef.current = false
-  }, [tasks])
+    armUndo({ kind: "complete", id })
+  }, [armUndo])
 
   const addTaskToSession = useCallback((sessionId: string, text: string) => {
     const newTask: Task = {
       id: generateId(),
       text,
       createdAt: Date.now(),
-      priority: "medium",
     }
     setSessions((prev) =>
       prev.map((s) =>
@@ -519,7 +541,6 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
                         <StoneDetail
                           task={task}
                           onDelete={() => removeTask(task.id)}
-                          onSetPriority={(p) => updatePriority(task.id, p)}
                           onClose={() => setExpandedId(null)}
                         />
                       )}
@@ -535,15 +556,45 @@ export function MainScreen({ initialTasks, initialSessions, hasOnboarded }: Main
 
       {/* Add stone area */}
       <div
-        className="app-footer flex flex-col items-center justify-start"
+        className="app-footer relative flex flex-col items-center justify-start"
         style={{ paddingTop: "4px", flexShrink: 0 }}
       >
+        {undoAction && (
+          <button
+            onClick={performUndo}
+            className="text-foreground"
+            style={{
+              position: "absolute",
+              top: "-26px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              fontSize: "11px",
+              letterSpacing: "0.04em",
+              opacity: undoVisible ? 0.6 : 0,
+              transition: "opacity 0.25s ease",
+              zIndex: 10,
+            }}
+            aria-label={
+              undoAction.kind === "delete" ? "Undo delete" : "Undo complete"
+            }
+          >
+            undo
+          </button>
+        )}
         <AddStoneButton onAdd={addTask} />
 
-        {tasks.length > 0 && tasks.filter(t => !t.completedAt).length > 0 && !expandedId && !completingId && (
+        {tasks.length > 0 && tasks.filter(t => !t.completedAt).length > 0 && (
           <p
-            className="mt-4 text-foreground opacity-20"
-            style={{ fontSize: "10px", letterSpacing: "0.02em" }}
+            className="mt-4 text-foreground"
+            style={{
+              fontSize: "10px",
+              letterSpacing: "0.02em",
+              // Fade rather than unmount: removing the hint mid-hold shrinks
+              // the footer, shifts the bottom-anchored tower under the pointer,
+              // and the resulting pointerleave cancels the hold
+              opacity: !expandedId && !completingId ? 0.2 : 0,
+              transition: "opacity 0.2s ease",
+            }}
           >
             hold to complete
           </p>

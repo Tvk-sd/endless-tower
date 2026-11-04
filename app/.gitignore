@@ -11,3 +11,6 @@ node_modules/
 *storybook.log
 storybook-static
 .vercel
+
+# Next static export output
+out/
