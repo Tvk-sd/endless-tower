@@ -2,6 +2,8 @@
 
 A mobile-native task app where every task is a stone. Stack them. Complete them. Save your towers.
 
+**[→ Design documentation](docs/design/README.md)** — screens, design system, and interaction specs as a visual walkthrough.
+
 ## Concept
 Tasks are physical objects — irregular stones that stack on top of each other. The tower grows upward as you add tasks. Completing a task fills the stone with colour. When you're done, save the tower and start a new one.
 
